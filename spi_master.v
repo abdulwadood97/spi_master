@@ -95,7 +95,8 @@ module spi_master
   assign w_CPHA  = (SPI_MODE == 1) | (SPI_MODE == 3);
 
 
-  assign SIO_OUT = (i_TX_DV == 1'b1 | r_TX_DV == 1'b1) ? SIO_w : 4'bZZZZ;
+  assign SIO_OUT[0] = ((i_TX_DV == 1'b1 | r_TX_DV == 1'b1)&&(BUS_MODE == 0)) ? SIO_w[0] : 1'bZ;
+  assign SIO_OUT[3:1] = ((i_TX_DV == 1'b1 | r_TX_DV == 1'b1)&&(BUS_MODE != 0)) ? SIO_w[3:1] : 3'bZZZ;
 
 
   // Purpose: Generate SPI Clock correct number of times when pulse comes
