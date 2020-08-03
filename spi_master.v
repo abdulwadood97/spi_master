@@ -1,6 +1,5 @@
 ///////////////////////////////////////////////////////////////////////////////
 //				Designed by: Abdul Wadood
-//				Email:		a.wadood90@hotmail.comes
 //				Dated:		03-08-2020 
 //
 //Description: SPI (Serial Peripheral Interface) Master
