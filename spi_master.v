@@ -352,10 +352,10 @@ module spi_master
 			else begin
 				if(r_RX_Bit_Count == 0) begin
 					r_RX_Bit_Count	<= 3'd7;
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[0];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[1];
 				end
 				else begin
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[0];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[1];
 					r_RX_Bit_Count	<= r_RX_Bit_Count - 3'd1;
 				end
 			end
