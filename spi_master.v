@@ -45,7 +45,7 @@
 
 module spi_master
   #(parameter SPI_MODE = 0,
-    parameter CLKS_PER_HALF_BIT = 1)
+    parameter CLKS_PER_HALF_BIT = 3)
   (
    // Control/Data Signals,
    input        i_Rst_L,     // FPGA Reset
@@ -70,7 +70,6 @@ module spi_master
   // SPI Interface (All Runs at SPI Clock Domain)
   wire w_CPOL;     // Clock polarity
   wire w_CPHA;     // Clock phase
-  reg [3:0] SIO_r = 4'd0;
 
   reg [$clog2(CLKS_PER_HALF_BIT*2)-1:0] r_SPI_Clk_Count = 0;
   reg r_SPI_Clk;
@@ -95,8 +94,8 @@ module spi_master
   assign w_CPHA  = (SPI_MODE == 1) | (SPI_MODE == 3);
 
 
-  assign SIO_OUT[0] = ((i_TX_DV == 1'b1 | r_TX_DV == 1'b1)&&(BUS_MODE == 0)) ? SIO_w[0] : 1'bZ;
-  assign SIO_OUT[3:1] = ((i_TX_DV == 1'b1 | r_TX_DV == 1'b1)&&(BUS_MODE != 0)) ? SIO_w[3:1] : 3'bZZZ;
+  assign SIO_OUT[0] = ((i_TX_DV == 1'b1) | (r_TX_DV == 1'b1)) ? SIO_w[0] : 1'bZ;
+  assign SIO_OUT[3:1] = (((i_TX_DV == 1'b1) | (r_TX_DV == 1'b1))&&(BUS_MODE != 0)) ? SIO_w[3:1] : 3'bZZZ;
 
 
   // Purpose: Generate SPI Clock correct number of times when pulse comes
@@ -229,7 +228,7 @@ module spi_master
 				begin
 					SIO_w[0] <= i_TX_Byte[3'b110];
 					SIO_w[1] <= i_TX_Byte[3'b111];
-					r_TX_Bit_Count	<= r_TX_Bit_Count - 3'd2;
+					r_TX_Bit_Count	<= 3'd5;
 				end
 				else if(BUS_MODE_IN == 2 | BUS_MODE_IN == 3)
 				begin			//SQIO
@@ -237,18 +236,18 @@ module spi_master
 					SIO_w[1] <= i_TX_Byte[3'b101];
 					SIO_w[2] <= i_TX_Byte[3'b110];
 					SIO_w[3] <= i_TX_Byte[3'b111];
-					r_TX_Bit_Count	<= r_TX_Bit_Count - 3'd4;
+					r_TX_Bit_Count	<= 3'd3;
 				end
 				else begin
 					SIO_w[0] <= i_TX_Byte[3'b111];
-					r_TX_Bit_Count <= r_TX_Bit_Count - 3'd1;
+					r_TX_Bit_Count <= 3'd6;
 				end
 			end
 		end
       // Catch the case where we start transaction and CPHA = 0
       else if (r_TX_DV)
 	  begin
-		if ((r_Leading_Edge & w_CPHA) | (r_Trailing_Edge & ~w_CPHA))
+		if ((r_Leading_Edge & w_CPHA) | (r_Trailing_Edge & ~w_CPHA) && (r_SPI_Clk_Count == 0))
 		begin
 			if (BUS_MODE == 1)
 			begin
@@ -311,22 +310,23 @@ module spi_master
 	if(i_RX_Pulse && Latch_Once)
 	begin
 		o_RX_Byte	<= 8'h00;
+		r_RX_Bit_Count	<= 3'd7;
 	end
     
       if (r_RX_Pulse)
 	  begin
-		if ((r_Leading_Edge & ~w_CPHA) | (r_Trailing_Edge & w_CPHA))
+		if ((r_Leading_Edge & ~w_CPHA) | (r_Trailing_Edge & w_CPHA) && (r_SPI_Clk_Count == 0))
 		begin
 			if (BUS_MODE == 1)
 			begin
 				if(r_RX_Bit_Count == 1) begin
 					r_RX_Bit_Count	<= 3'd7;
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[1];
-					o_RX_Byte[r_RX_Bit_Count - 1'b1]	<= SIO_r[0];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_OUT[1];
+					o_RX_Byte[r_RX_Bit_Count - 1'b1]	<= SIO_OUT[0];
 				end
 				else begin
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[1];
-					o_RX_Byte[r_RX_Bit_Count - 1'b1]	<= SIO_r[0];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_OUT[1];
+					o_RX_Byte[r_RX_Bit_Count - 1'b1]	<= SIO_OUT[0];
 					r_RX_Bit_Count	<= r_RX_Bit_Count - 3'd2;
 				end
 			end
@@ -335,16 +335,16 @@ module spi_master
 			begin
 				if(r_RX_Bit_Count == 3)begin
 					r_RX_Bit_Count	<= 3'd7;
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[3];
-					o_RX_Byte[r_RX_Bit_Count - 2'b01]	<= SIO_r[2];
-					o_RX_Byte[r_RX_Bit_Count - 2'b10]	<= SIO_r[1];
-					o_RX_Byte[r_RX_Bit_Count - 2'b11]	<= SIO_r[0];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_OUT[3];
+					o_RX_Byte[r_RX_Bit_Count - 2'b01]	<= SIO_OUT[2];
+					o_RX_Byte[r_RX_Bit_Count - 2'b10]	<= SIO_OUT[1];
+					o_RX_Byte[r_RX_Bit_Count - 2'b11]	<= SIO_OUT[0];
 				end
 				else begin
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[3];
-					o_RX_Byte[r_RX_Bit_Count - 2'b01]	<= SIO_r[2];
-					o_RX_Byte[r_RX_Bit_Count - 2'b10]	<= SIO_r[1];
-					o_RX_Byte[r_RX_Bit_Count - 2'b11]	<= SIO_r[0];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_OUT[3];
+					o_RX_Byte[r_RX_Bit_Count - 2'b01]	<= SIO_OUT[2];
+					o_RX_Byte[r_RX_Bit_Count - 2'b10]	<= SIO_OUT[1];
+					o_RX_Byte[r_RX_Bit_Count - 2'b11]	<= SIO_OUT[0];
 					r_RX_Bit_Count	<= r_RX_Bit_Count - 3'd4;
 				end
 			end
@@ -352,10 +352,10 @@ module spi_master
 			else begin
 				if(r_RX_Bit_Count == 0) begin
 					r_RX_Bit_Count	<= 3'd7;
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[1];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_OUT[1];
 				end
 				else begin
-					o_RX_Byte[r_RX_Bit_Count]	<= SIO_r[1];
+					o_RX_Byte[r_RX_Bit_Count]	<= SIO_OUT[1];
 					r_RX_Bit_Count	<= r_RX_Bit_Count - 3'd1;
 				end
 			end
@@ -374,7 +374,7 @@ module spi_master
     end
     else
       begin
-		SIO_r <= SIO_OUT;
+		//SIO_r <= SIO_OUT;
         o_SPI_Clk <= r_SPI_Clk;
       end // else: !if(~i_Rst_L)
   end // always @ (posedge i_Clk or negedge i_Rst_L)
