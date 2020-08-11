@@ -60,7 +60,6 @@ module spi_master
    input 		i_RX_Pulse,
    output reg       o_RX_DV,     // Data Valid pulse (1 clock cycle)
    output reg [7:0] o_RX_Byte,   // Byte received on MISO
-
 	input [1:0] BUS_MODE_IN,
    // SPI Interface
    output reg o_SPI_Clk,
@@ -82,20 +81,20 @@ module spi_master
   reg 		r_RX_Pulse = 0;
   reg [7:0] r_TX_Byte = 0;
   reg [1:0] BUS_MODE = 0;
-  reg Latch_Once = 1'b1;
+  reg Latch_Once = 1'b0;
 
   reg [2:0] r_RX_Bit_Count = 3'd7;
   reg [2:0] r_TX_Bit_Count = 3'd7;
 
 
-  assign w_CPOL  = (SPI_MODE == 2) | (SPI_MODE == 3);
+  assign w_CPOL  = (SPI_MODE == 2) || (SPI_MODE == 3);
 
 
-  assign w_CPHA  = (SPI_MODE == 1) | (SPI_MODE == 3);
+  assign w_CPHA  = (SPI_MODE == 1) || (SPI_MODE == 3);
 
 
-  assign SIO_OUT[0] = ((i_TX_DV == 1'b1) | (r_TX_DV == 1'b1)) ? SIO_w[0] : 1'bZ;
-  assign SIO_OUT[3:1] = (((i_TX_DV == 1'b1) | (r_TX_DV == 1'b1))&&(BUS_MODE != 0)) ? SIO_w[3:1] : 3'bZZZ;
+  assign SIO_OUT[0] = ((i_TX_DV == 1'b1) || (r_TX_DV == 1'b1)) ? SIO_w[0] : 1'bZ;
+  assign SIO_OUT[3:1] = (((i_TX_DV == 1'b1) || (r_TX_DV == 1'b1))&&(BUS_MODE != 0)) ? SIO_w[3:1] : 3'bZZZ;
 
 
   // Purpose: Generate SPI Clock correct number of times when pulse comes
@@ -115,27 +114,27 @@ module spi_master
     else
     begin
 		
-      if ((i_TX_DV | i_RX_Pulse) && Latch_Once)
+      if ((i_TX_DV || i_RX_Pulse) && !Latch_Once)
       begin
-		BUS_MODE	<= BUS_MODE_IN;
-		r_Leading_Edge  <= 1'b0;
-		r_Trailing_Edge <= 1'b0;
-		r_SPI_Clk       <= w_CPOL;
-        o_TX_Ready      <= 1'b0;
-		o_RX_DV			<= 1'b0;
-		if (BUS_MODE_IN == 1)
-		begin
-			r_SPI_Clk_Edges <= 8;  
-		end
-		else if (BUS_MODE_IN == 2 | BUS_MODE == 3)
-		begin
-			r_SPI_Clk_Edges <= 4; 
-		end
-		else begin
-			r_SPI_Clk_Edges <= 16; 
-		end
-        
+			BUS_MODE	<= BUS_MODE_IN;
+			r_Leading_Edge  <= 1'b0;
+			r_Trailing_Edge <= 1'b0;
+			r_SPI_Clk       <= w_CPOL;
+			  o_TX_Ready      <= 1'b0;
+			o_RX_DV			<= 1'b0;
+			if (BUS_MODE_IN == 1)
+			begin
+				r_SPI_Clk_Edges <= 8;  
+			end
+			else if ((BUS_MODE_IN == 2) || (BUS_MODE == 3))
+			begin
+				r_SPI_Clk_Edges <= 4; 
+			end
+			else begin
+				r_SPI_Clk_Edges <= 16; 
+			end
       end
+		
       else if (r_SPI_Clk_Edges > 0)
       begin
         o_TX_Ready <= 1'b0;
@@ -144,7 +143,7 @@ module spi_master
         begin
           r_SPI_Clk_Edges <= r_SPI_Clk_Edges - 1'b1;
           r_SPI_Clk_Count <= 0;
-          r_SPI_Clk       <= ~r_SPI_Clk;
+          r_SPI_Clk       <= !r_SPI_Clk;
 			 if(r_Leading_Edge) begin
 				r_Leading_Edge	<= 1'b0;
 				r_Trailing_Edge	<= 1'b1;
@@ -159,15 +158,16 @@ module spi_master
           r_SPI_Clk_Count <= r_SPI_Clk_Count + 1'b1;
         end
       end  
+		
       else
       begin
-		r_Leading_Edge  <= 1'b0;
-		r_Trailing_Edge <= 1'b0;
-		r_SPI_Clk_Edges <= 0;
-		r_SPI_Clk       <= w_CPOL;
-		o_TX_Ready <= 1'b1;
-		o_RX_DV	<= 1'b1;
-		BUS_MODE	<= BUS_MODE;
+			r_Leading_Edge  <= 1'b0;
+			r_Trailing_Edge <= 1'b0;
+			r_SPI_Clk_Edges <= 0;
+			r_SPI_Clk       <= w_CPOL;
+			o_TX_Ready <= 1'b1;
+			o_RX_DV	<= 1'b1;
+			BUS_MODE	<= BUS_MODE;
       end
       
       
@@ -184,20 +184,20 @@ module spi_master
       r_TX_Byte <= 8'h00;
       r_TX_DV   <= 1'b0;
 	  r_RX_Pulse	<= 1'b0;
-	  Latch_Once <= 1'b1;
+	  Latch_Once <= 1'b0;
     end
     else begin
-		if((i_RX_Pulse | i_TX_DV) && Latch_Once) begin
-			Latch_Once	<= 1'b0;
+		if((i_RX_Pulse || i_TX_DV) && !Latch_Once) begin
+			Latch_Once	<= 1'b1;
 			r_TX_DV <= i_TX_DV; 		// 1 clock cycle delay
 			r_RX_Pulse	<= i_RX_Pulse;
 			r_TX_Byte <= i_TX_Byte;
 		end
 		else 
 		begin
-			if(o_TX_Ready | o_RX_DV)
+			if(o_TX_Ready || o_RX_DV)
 			begin
-				Latch_Once <= 1'b1;
+				Latch_Once <= 1'b0;
 				if(o_TX_Ready) begin
 					r_TX_DV	<= 1'b0;
 				end
@@ -220,7 +220,7 @@ module spi_master
     end
     else
     begin
-		if(i_TX_DV && Latch_Once)
+		if(i_TX_DV && !Latch_Once)
 		begin
 			if(~w_CPHA)
 			begin
@@ -230,7 +230,7 @@ module spi_master
 					SIO_w[1] <= i_TX_Byte[3'b111];
 					r_TX_Bit_Count	<= 3'd5;
 				end
-				else if(BUS_MODE_IN == 2 | BUS_MODE_IN == 3)
+				else if((BUS_MODE_IN == 2) || (BUS_MODE_IN == 3))
 				begin			//SQIO
 					SIO_w[0] <= i_TX_Byte[3'b100];
 					SIO_w[1] <= i_TX_Byte[3'b101];
@@ -247,12 +247,11 @@ module spi_master
       // Catch the case where we start transaction and CPHA = 0
       else if (r_TX_DV)
 	  begin
-		if ((r_Leading_Edge & w_CPHA) | (r_Trailing_Edge & ~w_CPHA) && (r_SPI_Clk_Count == 0))
+		if (((r_Leading_Edge && w_CPHA) || (r_Trailing_Edge && ~w_CPHA)) && (r_SPI_Clk_Count==0))
 		begin
 			if (BUS_MODE == 1)
 			begin
 				if(r_TX_Bit_Count == 1) begin
-					r_TX_Bit_Count	<= 3'd7;
 					SIO_w[1] <= r_TX_Byte[r_TX_Bit_Count];
 					SIO_w[0] <= r_TX_Byte[r_TX_Bit_Count - 1'b1];
 				end
@@ -263,10 +262,9 @@ module spi_master
 				end
 			end
 			
-			else if(BUS_MODE == 2 | BUS_MODE == 3)
+			else if((BUS_MODE == 2) || (BUS_MODE == 3))
 			begin
 				if(r_TX_Bit_Count == 3)begin
-					r_TX_Bit_Count	<= 3'd7;
 					SIO_w[3] <= r_TX_Byte[r_TX_Bit_Count];
 					SIO_w[2] <= r_TX_Byte[r_TX_Bit_Count - 2'b01];
 					SIO_w[1] <= r_TX_Byte[r_TX_Bit_Count - 2'b10];
@@ -282,7 +280,6 @@ module spi_master
 			end
 			else begin	//BUS_MODE == 0
 				if(r_TX_Bit_Count == 0) begin
-					r_TX_Bit_Count	<= 3'd7;
 					SIO_w[0] <= r_TX_Byte[r_TX_Bit_Count];
 				end
 				else begin
@@ -307,7 +304,7 @@ module spi_master
     else
     begin
 	//Initialize
-	if(i_RX_Pulse && Latch_Once)
+	if(i_RX_Pulse && !Latch_Once)
 	begin
 		o_RX_Byte	<= 8'h00;
 		r_RX_Bit_Count	<= 3'd7;
@@ -315,7 +312,7 @@ module spi_master
     
       if (r_RX_Pulse)
 	  begin
-		if ((r_Leading_Edge & ~w_CPHA) | (r_Trailing_Edge & w_CPHA) && (r_SPI_Clk_Count == 0))
+		if (((r_Leading_Edge && ~w_CPHA) || (r_Trailing_Edge && w_CPHA)) && (r_SPI_Clk_Count==0))
 		begin
 			if (BUS_MODE == 1)
 			begin
@@ -331,7 +328,7 @@ module spi_master
 				end
 			end
 			
-			else if (BUS_MODE == 2 | BUS_MODE == 3) 
+			else if ((BUS_MODE == 2) || (BUS_MODE == 3))
 			begin
 				if(r_RX_Bit_Count == 3)begin
 					r_RX_Bit_Count	<= 3'd7;
